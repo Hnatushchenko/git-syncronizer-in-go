@@ -50,15 +50,6 @@ func removeFilesRecursively(directoryFullName string) bool {
 		shouldCurrentDirectoryBeDeleted = removeFilesRecursively(childDirectoryFullName)
 	}
 
-	if shouldCurrentDirectoryBeDeleted {
-		err = os.RemoveAll(directoryFullName)
-		if err != nil {
-			log.Printf("Failed to remove the current directory %s", directoryFullName)
-			log.Println(err)
-			return false
-		}
-	}
-
 	return shouldCurrentDirectoryBeDeleted
 }
 

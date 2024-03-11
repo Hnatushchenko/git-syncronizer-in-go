@@ -1,16 +1,24 @@
 package main
 
 import (
+	"fmt"
 	fileHelper "github.com/hnatushchenko/git-syncronizer/helpers"
+	"io"
 	"log"
+	"time"
 )
 
 const sourcePath = "C:\\test4\\screens"
 const destinationPath = "C:\\test4\\destination"
 
 func main() {
-	validateInputDirectories()
+	//validateInputDirectories()
+	log.SetOutput(io.Discard)
+	removeFilesRecursively(destinationPath)
+	start := time.Now()
 	copyFilesUsingGoRoutines(sourcePath, destinationPath)
+	elapsed := time.Since(start)
+	fmt.Printf("Coping took %s", elapsed)
 }
 
 func validateInputDirectories() {
