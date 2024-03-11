@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 )
 
 func removeFilesRecursively(directoryFullName string) bool {
@@ -62,14 +63,21 @@ func copyFilesUsingGoRoutines(sourceDirectoryFullName string,
 		return
 	}
 
+	waitGroup := sync.WaitGroup{}
 	for _, entry := range entries {
 		sourceFileFullName := filepath.Join(sourceDirectoryFullName, entry.Name())
 		newFileFullName := filepath.Join(destinationDirectoryFullName, entry.Name())
-		_, err = fileHelper.CopyFile(sourceFileFullName, newFileFullName)
-		if err != nil {
-			log.Printf("Failed to copy file %s to %s\n", sourceFileFullName, newFileFullName)
-			log.Println(err)
-		}
-		log.Printf("File copied successfully from %s to %s\r\n", sourceFileFullName, newFileFullName)
+		go func() {
+			defer waitGroup.Done()
+			_, err = fileHelper.CopyFile(sourceFileFullName, newFileFullName)
+			if err != nil {
+				log.Printf("Failed to copy file %s to %s\n", sourceFileFullName, newFileFullName)
+				log.Println(err)
+			}
+			log.Printf("File copied successfully from %s to %s\r\n", sourceFileFullName, newFileFullName)
+		}()
+		waitGroup.Add(1)
 	}
+
+	waitGroup.Wait()
 }
