@@ -6,7 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 )
+
+var resultChan = make(chan int64, 1500)
+var waitGroup sync.WaitGroup
 
 func removeFilesRecursively(directoryFullName string) bool {
 	fileNamesToIgnore := GetFileNamesToIgnore()
@@ -57,35 +61,32 @@ func copyFilesUsingGoRoutines(sourceDirectoryFullName string,
 	destinationDirectoryFullName string) int64 {
 	entries, err := os.ReadDir(sourceDirectoryFullName)
 	if err != nil {
-		log.Printf("Failed to read the directory %s\n", sourceDirectoryFullName)
-		log.Println(err)
-		return 0
+		log.Fatal(err)
 	}
 
-	var result int64 = 0
-	//waitGroup := sync.WaitGroup{}
+	var totalBytes int64 = 0
 	for _, entry := range entries {
 		sourceFileFullName := filepath.Join(sourceDirectoryFullName, entry.Name())
 		newFileFullName := filepath.Join(destinationDirectoryFullName, entry.Name())
-		res, err := fileHelper.CopyFile(sourceFileFullName, newFileFullName)
-		if err != nil {
-			log.Printf("Failed to copy file %s to %s\n", sourceFileFullName, newFileFullName)
-			log.Println(err)
-		}
-		log.Printf("File copied successfully from %s to %s\r\n", sourceFileFullName, newFileFullName)
-		result += res
-		// func() int {
-		//	defer waitGroup.Done()
-		//	_, err = fileHelper.CopyFile(sourceFileFullName, newFileFullName)
-		//	if err != nil {
-		//		log.Printf("Failed to copy file %s to %s\n", sourceFileFullName, newFileFullName)
-		//		log.Println(err)
-		//	}
-		//	log.Printf("File copied successfully from %s to %s\r\n", sourceFileFullName, newFileFullName)
-		//}()
-		//waitGroup.Add(1)
+		waitGroup.Add(1)
+		go copyFile(sourceFileFullName, newFileFullName)
 	}
 
-	//waitGroup.Wait()
-	return result
+	waitGroup.Wait()
+	close(resultChan)
+	for byteResult := range resultChan {
+		log.Printf("Receiving %d bytes", byteResult)
+		totalBytes += byteResult
+	}
+
+	return totalBytes
+}
+
+func copyFile(sourceFileFullName string,
+	newFileFullName string,
+) {
+	numberOfBytes, _ := fileHelper.CopyFile(sourceFileFullName, newFileFullName)
+	log.Printf("Sending bytes: %v", numberOfBytes)
+	resultChan <- numberOfBytes
+	waitGroup.Done()
 }
