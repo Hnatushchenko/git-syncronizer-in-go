@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sync"
 )
 
 func removeFilesRecursively(directoryFullName string) bool {
@@ -55,29 +54,38 @@ func removeFilesRecursively(directoryFullName string) bool {
 }
 
 func copyFilesUsingGoRoutines(sourceDirectoryFullName string,
-	destinationDirectoryFullName string) {
+	destinationDirectoryFullName string) int64 {
 	entries, err := os.ReadDir(sourceDirectoryFullName)
 	if err != nil {
 		log.Printf("Failed to read the directory %s\n", sourceDirectoryFullName)
 		log.Println(err)
-		return
+		return 0
 	}
 
-	waitGroup := sync.WaitGroup{}
+	var result int64 = 0
+	//waitGroup := sync.WaitGroup{}
 	for _, entry := range entries {
 		sourceFileFullName := filepath.Join(sourceDirectoryFullName, entry.Name())
 		newFileFullName := filepath.Join(destinationDirectoryFullName, entry.Name())
-		go func() {
-			defer waitGroup.Done()
-			_, err = fileHelper.CopyFile(sourceFileFullName, newFileFullName)
-			if err != nil {
-				log.Printf("Failed to copy file %s to %s\n", sourceFileFullName, newFileFullName)
-				log.Println(err)
-			}
-			log.Printf("File copied successfully from %s to %s\r\n", sourceFileFullName, newFileFullName)
-		}()
-		waitGroup.Add(1)
+		res, err := fileHelper.CopyFile(sourceFileFullName, newFileFullName)
+		if err != nil {
+			log.Printf("Failed to copy file %s to %s\n", sourceFileFullName, newFileFullName)
+			log.Println(err)
+		}
+		log.Printf("File copied successfully from %s to %s\r\n", sourceFileFullName, newFileFullName)
+		result += res
+		// func() int {
+		//	defer waitGroup.Done()
+		//	_, err = fileHelper.CopyFile(sourceFileFullName, newFileFullName)
+		//	if err != nil {
+		//		log.Printf("Failed to copy file %s to %s\n", sourceFileFullName, newFileFullName)
+		//		log.Println(err)
+		//	}
+		//	log.Printf("File copied successfully from %s to %s\r\n", sourceFileFullName, newFileFullName)
+		//}()
+		//waitGroup.Add(1)
 	}
 
-	waitGroup.Wait()
+	//waitGroup.Wait()
+	return result
 }
