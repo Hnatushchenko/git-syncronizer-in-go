@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	fileHelper "github.com/hnatushchenko/git-syncronizer/helpers"
+	"io"
 	"log"
 	"time"
 )
@@ -12,7 +13,7 @@ const destinationPath = "C:\\test4\\destination"
 
 func main() {
 	//validateInputDirectories()
-	//log.SetOutput(io.Discard)
+	log.SetOutput(io.Discard)
 	removeFilesRecursively(destinationPath)
 	start := time.Now()
 	numOfBytes := copyFilesUsingGoRoutines(sourcePath, destinationPath)

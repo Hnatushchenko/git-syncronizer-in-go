@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-var resultChan = make(chan int64, 1500)
+var resultChan = make(chan int64)
 var waitGroup sync.WaitGroup
 
 func removeFilesRecursively(directoryFullName string) bool {
@@ -64,22 +64,35 @@ func copyFilesUsingGoRoutines(sourceDirectoryFullName string,
 		log.Fatal(err)
 	}
 
-	var totalBytes int64 = 0
-	for _, entry := range entries {
-		sourceFileFullName := filepath.Join(sourceDirectoryFullName, entry.Name())
-		newFileFullName := filepath.Join(destinationDirectoryFullName, entry.Name())
-		waitGroup.Add(1)
-		go copyFile(sourceFileFullName, newFileFullName)
+	page := 0
+	pageSize := 50
+	recordsProcessed := 0
+	accumulationChannel := make(chan int64, 1)
+	go accumulateResults(accumulationChannel)
+	for ok := true; ok; ok = recordsProcessed > 0 {
+		recordsProcessed = 0
+		for i := page * pageSize; i < page*pageSize+pageSize; i++ {
+
+			if i >= len(entries) {
+				break
+			}
+
+			name := entries[i].Name()
+			sourceFileFullName := filepath.Join(sourceDirectoryFullName, name)
+			newFileFullName := filepath.Join(destinationDirectoryFullName, name)
+			waitGroup.Add(1)
+			go copyFile(sourceFileFullName, newFileFullName)
+			recordsProcessed++
+		}
+		waitGroup.Wait()
+		page++
 	}
 
 	waitGroup.Wait()
 	close(resultChan)
-	for byteResult := range resultChan {
-		log.Printf("Receiving %d bytes", byteResult)
-		totalBytes += byteResult
-	}
 
-	return totalBytes
+	result := <-accumulationChannel
+	return result
 }
 
 func copyFile(sourceFileFullName string,
@@ -89,4 +102,13 @@ func copyFile(sourceFileFullName string,
 	log.Printf("Sending bytes: %v", numberOfBytes)
 	resultChan <- numberOfBytes
 	waitGroup.Done()
+}
+
+func accumulateResults(accumulationChannel chan<- int64) {
+	var totalBytes int64 = 0
+	for byteResult := range resultChan {
+		log.Printf("Receiving %d bytes", byteResult)
+		totalBytes += byteResult
+	}
+	accumulationChannel <- totalBytes
 }
